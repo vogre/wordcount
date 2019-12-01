@@ -10,6 +10,13 @@ class WordStreamThread(threading.Thread):
         threading.Thread.__init__(self)
         self.csocket = clientSocket
 
+    def saveWord(self, word):
+        lword = word.lower()
+        if lword in wordCount:
+            wordCount[lword] += 1
+        else:
+            wordCount[lword] = 1
+
     def run(self):
         currentWord = ''
         while True:
@@ -17,29 +24,22 @@ class WordStreamThread(threading.Thread):
 
             if len(buffer) <= 0:
                 if len(currentWord) > 0:
-                    saveWord(currentWord)
+                    self.saveWord(currentWord)
                 break
 
             text = buffer.decode("utf-8")
 
             for char in text:
                 if char == DELIMITER:
-                    saveWord(currentWord)
+                    self.saveWord(currentWord)
                     currentWord = ""
                 else:
                     currentWord += char
 
             # Cut words at end of buffer
             if len(currentWord) > 0:
-                saveWord(currentWord)
+                self.saveWord(currentWord)
                 currentWord = ''
-
-def saveWord(word):
-    lword = word.lower()
-    if lword in wordCount:
-        wordCount[lword] += 1
-    else:
-        wordCount[lword] = 1
 
 def listen():
     wordstreamSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
