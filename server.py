@@ -1,47 +1,65 @@
-import socket
+import socket, threading, pickle
 
-PORT = 1234
+WORD_STREAM_PORT = 1234
+GET_COUNT_PORT = 4321
 DELIMITER = ' '
 wordCount = {}
 
-def saveWord(word):
-    if word in wordCount:
-        wordCount[word.lower()] += 1
-    else:
-        wordCount[word.lower()] = 1
+class WordStreamThread(threading.Thread):
+    def __init__(self, clientAddress, clientSocket):
+        threading.Thread.__init__(self)
+        self.csocket = clientSocket
 
-def printWords():
-    for x, y in wordCount.items():
-        print(x, y)
+    def run(self):
+        currentWord = ''
+        while True:
+            buffer = self.csocket.recv(20000)
+
+            if len(buffer) <= 0:
+                if len(currentWord) > 0:
+                    saveWord(currentWord)
+                break
+
+            text = buffer.decode("utf-8")
+
+            for char in text:
+                if char == DELIMITER:
+                    saveWord(currentWord)
+                    currentWord = ""
+                else:
+                    currentWord += char
+
+            # Cut words at end of buffer
+            if len(currentWord) > 0:
+                saveWord(currentWord)
+                currentWord = ''
+
+def saveWord(word):
+    lword = word.lower()
+    if lword in wordCount:
+        wordCount[lword] += 1
+    else:
+        wordCount[lword] = 1
 
 def listen():
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.bind((socket.gethostname(), PORT))
-    s.listen()
+    wordstreamSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    wordstreamSocket.bind((socket.gethostname(), WORD_STREAM_PORT))
+    wordstreamSocket.listen()
 
-    client, address = s.accept()
+    clientSocket, clientAddress = wordstreamSocket.accept()
+    thread = WordStreamThread(clientAddress, clientSocket)
+    thread.start()
 
-    currWord = ""
+    # Listen to get socket
+    getcountSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    getcountSocket.bind((socket.gethostname(), GET_COUNT_PORT))
+    getcountSocket.listen()
 
     while True:
-        buffer = client.recv(20000)
-
-        if len(buffer) <= 0:
-            if len(currWord) > 0:
-                saveWord(currWord)
-            s.close()
-            break
-
-        text = buffer.decode("utf-8")
-
-        for char in text:
-            if char == DELIMITER:
-                saveWord(currWord)
-                currWord = ""
-            else:
-                currWord += char
-
-    printWords()
+        getcountClient, getCountAddress = getcountSocket.accept()
+        wordCountBytes = pickle.dumps(wordCount)
+        getcountClient.send(wordCountBytes)
+        getcountClient.close()
 
 
 # Execution starts here
