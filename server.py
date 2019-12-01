@@ -45,26 +45,32 @@ class WordStreamThread(threading.Thread):
                     self.saveWord(currentWord)
                     currentWord = ''
 
+class GetCountThread(threading.Thread):
+    def __init__(self, socket):
+        threading.Thread.__init__(self)
+        self.socket = socket
 
+    def run(self):
+        while True:
+            getcountClient, getCountAddress = self.socket.accept()
+            wordCountBytes = pickle.dumps(wordCount)
+            getcountClient.send(wordCountBytes)
+            getcountClient.close()
 
 def Main():
     wordstreamSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     wordstreamSocket.bind((socket.gethostname(), WORD_STREAM_PORT))
-    wordstreamSocket.listen()
+    wordstreamSocket.listen(10)
 
-    thread = WordStreamThread(wordstreamSocket)
-    thread.start()
+    wordStreamThread = WordStreamThread(wordstreamSocket)
+    wordStreamThread.start()
 
-    # Listen to get socket
     getcountSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     getcountSocket.bind((socket.gethostname(), GET_COUNT_PORT))
-    getcountSocket.listen()
+    getcountSocket.listen(10)
 
-    while True:
-        getcountClient, getCountAddress = getcountSocket.accept()
-        wordCountBytes = pickle.dumps(wordCount)
-        getcountClient.send(wordCountBytes)
-        getcountClient.close()
+    getCountThread = GetCountThread(getcountSocket)
+    getCountThread.start()
 
 
 # Execution starts here
