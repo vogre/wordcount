@@ -2,7 +2,7 @@ import socket, time
 
 WORD_STREAM_PORT = 1234
 SEND_INTERVAL_SECONDS = 1
-TOTAL_SEND_COUNT = 50
+TOTAL_SEND_COUNT = 5
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.connect((socket.gethostname(), WORD_STREAM_PORT))
@@ -17,5 +17,3 @@ while True:
     s.send(bytes(msg, "utf-8"))
     sendcount += 1
     time.sleep(SEND_INTERVAL_SECONDS)
-
-s.close()

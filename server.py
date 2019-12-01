@@ -6,9 +6,9 @@ DELIMITER = ' '
 wordCount = {}
 
 class WordStreamThread(threading.Thread):
-    def __init__(self, clientAddress, clientSocket):
+    def __init__(self, socket):
         threading.Thread.__init__(self)
-        self.csocket = clientSocket
+        self.socket = socket
 
     def saveWord(self, word):
         lword = word.lower()
@@ -18,36 +18,41 @@ class WordStreamThread(threading.Thread):
             wordCount[lword] = 1
 
     def run(self):
-        currentWord = ''
-        while True:
-            buffer = self.csocket.recv(20000)
 
-            if len(buffer) <= 0:
+        while True:
+            cSocket, cAddress = self.socket.accept()
+            currentWord = ''
+            while True:
+                buffer = cSocket.recv(20000)
+
+                if len(buffer) <= 0:
+                    cSocket.close()
+                    if len(currentWord) > 0:
+                        self.saveWord(currentWord)
+                    break
+
+                text = buffer.decode("utf-8")
+
+                for char in text:
+                    if char == DELIMITER:
+                        self.saveWord(currentWord)
+                        currentWord = ""
+                    else:
+                        currentWord += char
+
+                # Cut words at end of buffer
                 if len(currentWord) > 0:
                     self.saveWord(currentWord)
-                break
+                    currentWord = ''
 
-            text = buffer.decode("utf-8")
 
-            for char in text:
-                if char == DELIMITER:
-                    self.saveWord(currentWord)
-                    currentWord = ""
-                else:
-                    currentWord += char
 
-            # Cut words at end of buffer
-            if len(currentWord) > 0:
-                self.saveWord(currentWord)
-                currentWord = ''
-
-def listen():
+def Main():
     wordstreamSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     wordstreamSocket.bind((socket.gethostname(), WORD_STREAM_PORT))
     wordstreamSocket.listen()
 
-    clientSocket, clientAddress = wordstreamSocket.accept()
-    thread = WordStreamThread(clientAddress, clientSocket)
+    thread = WordStreamThread(wordstreamSocket)
     thread.start()
 
     # Listen to get socket
@@ -63,4 +68,4 @@ def listen():
 
 
 # Execution starts here
-listen()
+Main()
